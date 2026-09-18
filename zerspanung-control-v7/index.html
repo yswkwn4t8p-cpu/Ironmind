@@ -1,0 +1,45 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1220"><title>Zerspanung Control V7</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f5f7fb}iframe{display:block;width:100%;height:100%;border:0}</style></head><body><iframe id="zc" src="../zerspanung-control-v5/index.html?ui=v7" title="Zerspanung Control"></iframe><script>
+const frame=document.getElementById('zc');
+frame.addEventListener('load',()=>{
+ const d=frame.contentDocument,w=frame.contentWindow;
+ if(!d||!w)return;
+ const style=d.createElement('style');
+ style.textContent=`
+ .mobile{display:inline-flex!important}.menu-btn{display:inline-flex!important;align-items:center;justify-content:center;min-width:40px;font-size:18px;line-height:1}
+ .app.menu-hidden{grid-template-columns:1fr!important}.app.menu-hidden .side{display:none!important}
+ .kpi.kpi-link{cursor:pointer;transition:.15s;position:relative}.kpi.kpi-link:hover{transform:translateY(-1px);box-shadow:0 6px 18px #17203314;border-color:#c7d5ea}.kpi.kpi-link:active{transform:translateY(0)}
+ .kpi .kpi-go{display:block;margin-top:7px;color:#2563eb;font-size:9px;font-weight:850}
+ .filterbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:9px}.filterchip{border:1px solid var(--line);background:#fff;padding:7px 9px;border-radius:999px;font-size:9px;font-weight:800;cursor:pointer}.filterchip.on{background:#eaf1ff;color:#174ea6;border-color:#cbdcff}.filter-summary{font-size:10px;color:var(--muted);margin:0 0 9px}
+ .menu-close{margin-left:auto;background:#162236!important;color:#fff!important;border-color:#2b3a51!important}
+ @media(max-width:760px){.app.menu-hidden .side{display:block!important}.side.open{left:0!important}}
+ `;
+ d.head.appendChild(style);
+ const inject=d.createElement('script');
+ inject.textContent=`(function(){
+  let orderFilter='all';
+  const appShell=document.querySelector('.app'); if(appShell)appShell.id='appShell';
+  const menu=document.getElementById('menu'); if(menu){menu.classList.remove('mobile');menu.classList.add('menu-btn');menu.setAttribute('aria-label','Hauptmenü öffnen');}
+  const brand=document.querySelector('.brand');
+  if(brand&&!document.getElementById('closeMenu')){const x=document.createElement('button');x.id='closeMenu';x.className='btn small menu-close';x.textContent='×';x.title='Menü schließen';brand.appendChild(x);x.onclick=()=>{if(innerWidth<=760)document.getElementById('side').classList.remove('open');else document.getElementById('appShell').classList.add('menu-hidden')}}
+  if(menu)menu.onclick=()=>{if(innerWidth<=760)document.getElementById('side').classList.toggle('open');else document.getElementById('appShell').classList.toggle('menu-hidden')};
+  const oldShow=show;
+  show=function(v){if(v!=='orders')orderFilter='all';oldShow(v)};
+  window.openOrderFilter=function(f){orderFilter=f;view='orders';document.getElementById('title').textContent='Fertigungsaufträge';document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.v==='orders'));document.getElementById('side').classList.remove('open');render()};
+  const oldDashboard=dashboard;
+  dashboard=function(){oldDashboard();const cards=[...document.querySelectorAll('#root .kpis .kpi')];const defs=[['open','Aufträge anzeigen ›'],['running','Laufende Aufträge ›'],['unplanned','Ungeplante anzeigen ›'],['late','Risiken anzeigen ›'],['capacity','Nach Maschinenzeit ›']];cards.forEach((c,i)=>{const def=defs[i];if(!def)return;c.classList.add('kpi-link');c.onclick=()=>window.openOrderFilter(def[0]);let g=c.querySelector('.kpi-go');if(!g){g=document.createElement('span');g.className='kpi-go';c.appendChild(g)}g.textContent=def[1]})};
+  const oldOrders=orders;
+  orders=function(){oldOrders();const rootEl=document.getElementById('root'),toolbar=rootEl.querySelector('.toolbar'),tbody=document.getElementById('tbody'),search=document.getElementById('search');if(!toolbar||!tbody)return;
+   const defs={all:{label:'Alle Aufträge',fn:j=>true},open:{label:'Offene Aufträge',fn:j=>j.status!=='done'},running:{label:'Laufende Aufträge',fn:j=>j.status==='running'},unplanned:{label:'Ungeplante Aufträge',fn:j=>j.status!=='done'&&(!j.m||!j.start)},late:{label:'Terminrisiken',fn:j=>j.status!=='done'&&late(j)},capacity:{label:'Offene Maschinenzeit',fn:j=>j.status!=='done'}};
+   const f=defs[orderFilter]||defs.all,bar=document.createElement('div');bar.className='filterbar';bar.innerHTML=[['all','Alle'],['open','Offen'],['running','Läuft'],['unplanned','Ungeplant'],['late','Terminrisiko'],['capacity','Maschinenzeit']].map(x=>'<button class="filterchip '+(orderFilter===x[0]?'on':'')+'" data-filter="'+x[0]+'">'+x[1]+'</button>').join('');toolbar.parentNode.insertBefore(bar,toolbar);
+   const summary=document.createElement('p');summary.className='filter-summary';toolbar.parentNode.insertBefore(summary,toolbar.nextSibling);
+   bar.onclick=e=>{const b=e.target.closest('[data-filter]');if(b)window.openOrderFilter(b.dataset.filter)};
+   const rows=[...tbody.querySelectorAll('tr')];rows.forEach((tr,i)=>tr.dataset.jobid=state.jobs[i]?.id||'');
+   function apply(){const q=(search?.value||'').toLowerCase();let visible=0;rows.forEach(tr=>{const j=state.jobs.find(x=>x.id===tr.dataset.jobid),ok=j&&f.fn(j)&&tr.innerText.toLowerCase().includes(q);tr.style.display=ok?'':'none';if(ok)visible++});summary.innerHTML='<b>'+f.label+'</b> · '+visible+' Treffer'+(orderFilter==='capacity'?' · längste Maschinenzeit zuerst':'')}
+   if(orderFilter==='capacity'){rows.sort((a,b)=>{const ja=state.jobs.find(x=>x.id===a.dataset.jobid),jb=state.jobs.find(x=>x.id===b.dataset.jobid);return dur(jb)-dur(ja)}).forEach(r=>tbody.appendChild(r))}
+   if(search)search.oninput=apply;apply();
+  };
+  dashboard();
+ })();`;
+ d.body.appendChild(inject);
+});
+</script></body></html>
