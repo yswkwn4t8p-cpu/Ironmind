@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>Zerspanung Control V5</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#f5f7fb;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#172033}#appframe{width:100%;height:100%;border:0;display:block}.overlay{position:fixed;inset:0;background:#f5f7fb;z-index:1000;display:none;overflow:auto}.overlay.show{display:block}.top{height:70px;background:#fff;border-bottom:1px solid #e4e9f1;display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:2}.top h1{margin:2px 0;font-size:20px}.ey{font-size:9px;text-transform:uppercase;letter-spacing:.13em;color:#667085}.btn{border:1px solid #e4e9f1;background:#fff;color:#172033;padding:8px 11px;border-radius:9px;font-weight:750;cursor:pointer}.btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}.content{padding:18px;max-width:1550px;margin:auto}.intro{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:13px}.intro h2{margin:0;font-size:16px}.intro p{margin:4px 0 0;color:#667085;font-size:10px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px}.card{background:#fff;border:1px solid #e4e9f1;border-radius:14px;padding:15px;cursor:pointer;transition:.15s;min-height:230px}.card:hover{transform:translateY(-1px);box-shadow:0 6px 20px #17203314}.head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.icon{width:42px;height:42px;border-radius:11px;background:#eef4ff;display:grid;place-items:center;font-size:21px;margin-bottom:9px}.card h3{font-size:14px;margin:0}.muted{color:#667085}.tiny{font-size:9px}.badge{display:inline-flex;padding:4px 7px;border-radius:999px;background:#eef2f7;font-size:9px;font-weight:850;white-space:nowrap}.green{background:#eaf8ef;color:#106a31}.orange{background:#fff4e5;color:#9a5700}.blue{background:#eaf1ff;color:#174ea6}.red{background:#fff0f0;color:#a61b1b}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}.metric{background:#f8fafc;border:1px solid #e4e9f1;border-radius:9px;padding:8px}.metric small{display:block;color:#667085;font-size:8px}.metric b{font-size:12px}.job{display:flex;justify-content:space-between;gap:7px;padding:8px 0;border-top:1px solid #e4e9f1}.job b{font-size:10px}.job small{display:block;color:#667085;font-size:8px;margin-top:2px}.detail{display:none}.detail.show{display:block}.overview.hide{display:none}.backline{margin-bottom:12px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.stat{background:#fff;border:1px solid #e4e9f1;border-radius:11px;padding:12px}.stat small{display:block;color:#667085;font-size:9px}.stat b{font-size:18px;display:block;margin-top:4px}.table{background:#fff;border:1px solid #e4e9f1;border-radius:12px;overflow:hidden}.thead,.row{display:grid;grid-template-columns:1.5fr .85fr .75fr .65fr .65fr;gap:8px;align-items:center;padding:11px 12px}.thead{background:#f8fafc;color:#667085;font-size:9px;font-weight:800;text-transform:uppercase}.row{border-top:1px solid #e4e9f1;cursor:pointer}.row:hover{background:#fafcff}.row b{font-size:10px}.row small{display:block;font-size:8px;color:#667085;margin-top:2px}.empty{padding:25px;text-align:center;color:#667085;font-size:10px}@media(max-width:1050px){.grid{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}}@media(max-width:700px){.top{height:64px;padding:0 10px}.content{padding:10px}.grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.thead{display:none}.row{grid-template-columns:1fr auto;gap:8px}.row>div:nth-child(2),.row>div:nth-child(3),.row>div:nth-child(4){display:none}}
+</style>
+</head>
+<body>
+<iframe id="appframe" src="../zerspanung-control-v4/index.html"></iframe>
+<div class="overlay" id="machineOverlay">
+  <div class="top"><div><span class="ey">Zerspanung Control</span><h1 id="overlayTitle">Maschinenübersicht</h1></div><button class="btn" onclick="closeMachines()">Zurück</button></div>
+  <div class="content">
+    <section class="overview" id="machineOverview"></section>
+    <section class="detail" id="machineDetail"></section>
+  </div>
+</div>
+<script>
+const MACHINES=[
+ {id:'M01',name:'Haas 5-Achs',type:'5-Achs Fräsen'},
+ {id:'M02',name:'Haas 3-Achs',type:'3-Achs Fräsen'},
+ {id:'M03',name:'Kern Drehen',type:'Drehen'},
+ {id:'M04',name:'Haas Y-Achs',type:'Dreh-Fräsen'}
+];
+const frame=document.getElementById('appframe');
+const overlay=document.getElementById('machineOverlay');
+function getState(){
+ const keys=['zc-v4','zc-gantt-v3','zcprod'];
+ for(const k of keys){try{const x=JSON.parse(localStorage.getItem(k)||'null');if(x&&Array.isArray(x.jobs))return x}catch(e){}}
+ return {jobs:[]};
+}
+function statusText(s){return({unplanned:'Ungeplant',planned:'Geplant',setup:'Rüsten',running:'Läuft',paused:'Pause',done:'Fertig'})[s]||s||'—'}
+function badge(s){return s==='running'||s==='done'?'green':s==='setup'||s==='paused'?'orange':s==='planned'?'blue':'red'}
+function dur(j){return (+j.setup||0)+(+j.cycle||0)*(+j.qty||0)}
+function fmtMin(v){v=Math.round(v||0);return v>=60?Math.floor(v/60)+' h '+(v%60?String(v%60).padStart(2,'0')+' min':''):v+' min'}
+function fmtDT(v){if(!v)return'—';try{return new Date(v).toLocaleString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return v}}
+function fmtDate(v){if(!v)return'—';try{return new Date(v+'T12:00:00').toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'})}catch(e){return v}}
+function machineReady(j){const c=j.check||{};return !!(j.fixture&&j.program&&(j.tools||[]).length&&c.fixture!==false&&c.program!==false)}
+function openMachines(){overlay.classList.add('show');document.getElementById('machineDetail').classList.remove('show');document.getElementById('machineOverview').classList.remove('hide');document.getElementById('overlayTitle').textContent='Maschinenübersicht';renderMachines()}
+function closeMachines(){overlay.classList.remove('show')}
+function renderMachines(){
+ const jobs=getState().jobs||[];
+ document.getElementById('machineOverview').innerHTML=`<div class="intro"><div><h2>Alle Maschinen</h2><p>Maschine anklicken → alle zugeordneten Fertigungsaufträge öffnen.</p></div></div><div class="grid">${MACHINES.map(m=>{
+  const all=jobs.filter(j=>j.m===m.id),open=all.filter(j=>j.status!=='done').sort((a,b)=>(a.start||'9').localeCompare(b.start||'9')),done=all.filter(j=>j.status==='done'),active=open.find(j=>['running','setup','paused'].includes(j.status)),next=active||open[0],minutes=open.reduce((s,j)=>s+dur(j),0),ready=open.filter(machineReady).length;
+  const preview=open.slice(0,3).map(j=>`<div class="job" onclick="event.stopPropagation();openOrder('${j.id}')"><div><b>${j.id} · ${j.name||''}</b><small>${fmtDT(j.start)} · ${j.qty||0} Stk.</small></div><span class="badge ${badge(j.status)}">${statusText(j.status)}</span></div>`).join('');
+  return `<article class="card" onclick="showMachine('${m.id}')"><div class="head"><div><div class="icon">⚙</div><h3>${m.name}</h3><span class="tiny muted">${m.type}</span></div>${next?`<span class="badge ${badge(next.status)}">${statusText(next.status)}</span>`:'<span class="badge green">Frei</span>'}</div><div class="metrics"><div class="metric"><small>Offene Aufträge</small><b>${open.length}</b></div><div class="metric"><small>Maschinenzeit offen</small><b>${fmtMin(minutes)}</b></div><div class="metric"><small>Rüstbereit</small><b>${ready}/${open.length}</b></div><div class="metric"><small>Fertig</small><b>${done.length}</b></div></div>${preview||'<div class="empty">Keine offenen Aufträge</div>'}<div class="tiny muted" style="margin-top:9px">Klicken für alle Aufträge →</div></article>`
+ }).join('')}</div>`;
+}
+function showMachine(mid){
+ const state=getState(),m=MACHINES.find(x=>x.id===mid);if(!m)return;
+ const assigned=(state.jobs||[]).filter(j=>j.m===mid).sort((a,b)=>{const ad=a.status==='done'?1:0,bd=b.status==='done'?1:0;if(ad!==bd)return ad-bd;return(a.start||'9999').localeCompare(b.start||'9999')});
+ const open=assigned.filter(j=>j.status!=='done'),done=assigned.filter(j=>j.status==='done'),active=open.filter(j=>['running','setup','paused'].includes(j.status)).length,minutes=open.reduce((s,j)=>s+dur(j),0);
+ document.getElementById('overlayTitle').textContent=m.name;
+ document.getElementById('machineOverview').classList.add('hide');
+ const detail=document.getElementById('machineDetail');detail.classList.add('show');
+ detail.innerHTML=`<div class="backline"><button class="btn" onclick="backMachines()">← Alle Maschinen</button></div><div class="intro"><div><h2>⚙ ${m.name}</h2><p>Alle diesem Arbeitsplatz zugeordneten Fertigungsaufträge. Auftrag anklicken → komplette Auftragsmappe.</p></div></div><div class="stats"><div class="stat"><small>Offene Aufträge</small><b>${open.length}</b></div><div class="stat"><small>Aktuell aktiv</small><b>${active}</b></div><div class="stat"><small>Offene Maschinenzeit</small><b>${fmtMin(minutes)}</b></div><div class="stat"><small>Gesamt zugeordnet</small><b>${assigned.length}</b></div></div><div class="table"><div class="thead"><div>Auftrag</div><div>Start</div><div>Termin</div><div>Zeit</div><div>Status</div></div>${assigned.map(j=>`<div class="row" onclick="openOrder('${j.id}')"><div><b>${j.id} · ${j.name||''}</b><small>${j.article||'—'} · ${j.material||'—'} · ${j.qty||0} Stk.</small></div><div><b>${fmtDT(j.start)}</b><small>Start</small></div><div><b>${fmtDate(j.due)}</b><small>Liefertermin</small></div><div><b>${fmtMin(dur(j))}</b><small>${j.setup||0} min Rüsten</small></div><div><span class="badge ${badge(j.status)}">${statusText(j.status)}</span></div></div>`).join('')||'<div class="empty">Dieser Maschine sind noch keine Aufträge zugeordnet.</div>'}</div>`;
+}
+function backMachines(){document.getElementById('machineDetail').classList.remove('show');document.getElementById('machineOverview').classList.remove('hide');document.getElementById('overlayTitle').textContent='Maschinenübersicht';renderMachines()}
+function openOrder(id){closeMachines();try{if(typeof frame.contentWindow.openJob==='function'){frame.contentWindow.openJob(id);return}}catch(e){}alert('Auftrag '+id+' ist zugeordnet. Bitte in der Fertigungsauftragsliste öffnen.')}
+function installMenu(){
+ try{
+  const doc=frame.contentDocument;if(!doc)return;
+  const nav=doc.querySelector('#nav');if(nav&&!doc.querySelector('[data-v="machine-extension"]')){
+   const b=doc.createElement('button');b.dataset.v='machine-extension';b.textContent='⚙ Maschinenübersicht';b.addEventListener('click',e=>{e.preventDefault();openMachines()});
+   const orders=nav.querySelector('[data-v="orders"]');if(orders)nav.insertBefore(b,orders);else nav.appendChild(b);
+  }
+  const root=doc.querySelector('#root');
+  if(root&&!doc.getElementById('machineQuickLink')){
+   const observer=new MutationObserver(()=>addDashboardLink(doc));observer.observe(root,{childList:true,subtree:true});addDashboardLink(doc);
+  }
+ }catch(e){}
+}
+function addDashboardLink(doc){
+ try{
+  const mods=doc.querySelector('.modules');if(!mods||doc.getElementById('machineQuickLink'))return;
+  const d=doc.createElement('div');d.className='module';d.id='machineQuickLink';d.innerHTML='<div class="icon">⚙</div><h3>Maschinenübersicht</h3><p>Alle Maschinen und sämtliche zugeordneten Aufträge je Maschine öffnen.</p>';d.onclick=openMachines;mods.insertBefore(d,mods.children[1]||null);
+ }catch(e){}
+}
+frame.addEventListener('load',()=>{installMenu();setTimeout(installMenu,400)});
+window.openMachines=openMachines;window.closeMachines=closeMachines;window.showMachine=showMachine;window.backMachines=backMachines;window.openOrder=openOrder;
+</script>
+</body>
+</html>
